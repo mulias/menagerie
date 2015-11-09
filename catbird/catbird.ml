@@ -114,24 +114,22 @@ let int_unary_op (op : (int -> int)) : out =
   unary_fun from_int op to_int
 let int_binary_op (op : (int -> int -> int)) : out =
   binary_fun from_int from_int op to_int
-let int_add  = int_binary_op ( + ) 
-let int_sub  = int_binary_op ( - ) 
-let int_mult = int_binary_op ( * ) 
-let int_div  = int_binary_op ( / ) 
-let int_succ = int_unary_op succ
-let int_pred = int_unary_op pred
-let int_to_str = unary_fun from_int Int.to_string to_str
+let add_f  = int_binary_op ( + ) 
+let sub_f  = int_binary_op ( - ) 
+let mult_f = int_binary_op ( * ) 
+let div_f  = int_binary_op ( / ) 
+let succ_f = int_unary_op succ
+let pred_f = int_unary_op pred
 
 (* TRUTH AND LIES *)
 let bool_unary_op (op : (bool -> bool)) : out =
   unary_fun from_bool op to_bool
 let bool_binary_op (op : (bool -> bool -> bool)) : out =
   binary_fun from_bool from_bool op to_bool
-let bool_and = bool_binary_op (&&)
-let bool_or  = bool_binary_op (||) 
-let bool_not = bool_unary_op (not) 
-let bool_to_str = unary_fun from_bool Bool.to_string to_str
-let eq = 
+let and_f = bool_binary_op (&&)
+let or_f  = bool_binary_op (||) 
+let not_f = bool_unary_op (not) 
+let eq_f = 
   Fun (fun (o1 : out) -> Fun (fun (o2 : out) -> 
     match (o1, o2) with
     | (Int a, Int b)   -> Bool (a = b)
@@ -149,22 +147,34 @@ let str_unary_op (op : (string -> string)) : out =
   unary_fun from_str op to_str
 let str_binary_op (op : (string -> string -> string)) : out =
   binary_fun from_str from_str op to_str
-let str_concat = str_binary_op (^)
-let str_len = unary_fun from_str String.length to_int
+let concat_f = str_binary_op (^)
+let len_f = unary_fun from_str String.length to_int
+let rec rec_to_str (o : out) : string =
+    match o with
+    | Int i  -> Int.to_string i
+    | Str s  -> "\"" ^ s ^ "\""
+    | Bool b -> Bool.to_string b
+    | Sym s  -> "'" ^ s
+    | List l -> "'(" ^ (String.concat (List.map l rec_to_str) ~sep:" ") ^ ")" 
+    | Fun _ -> "<function>"
+    | Error -> "Error"
+let to_str_f =
+  Fun (fun (o1 : out) -> Str (rec_to_str o1))
+
 
 (* LISTS WITH ALL THE CRYPTIC OPERATIONS *)
-let cons =  
+let cons_f =  
   Fun (fun (o1 : out) -> Fun (fun (o2 : out) -> 
     match from_list o2 with
     | Some l -> List (o1::l)
     | None -> Error))
-let car =
+let car_f =
   Fun (fun (o1 : out) -> 
     match from_list o1 with
     | Some (hd::tl) -> hd
     | Some [] -> Error
     | None -> Error)
-let cdr =
+let cdr_f =
   Fun (fun (o1 : out) -> 
     match from_list o1 with
     | Some (hd::tl) -> List tl
@@ -172,17 +182,20 @@ let cdr =
     | None -> Error)
 
 (* THIS IS THE STUFF WE CAN DO NOW *)
-let starting_env : env = [(Var "add", int_add); (Var "sub", int_sub);
-                          (Var "mult", int_mult); (Var "div", int_div);
-                          (Var "succ", int_succ); (Var "pred", int_pred);
-                          (Var "int_to_str", int_to_str);
-                          (Var "and", bool_and); (Var "or", bool_or);
-                          (Var "not", bool_not); (Var "eq", eq);
-                          (Var "bool_to_str", bool_to_str);
-                          (Var "concat", str_concat); (Var "len", str_len);
-                          (Var "cons", cons); (Var "car", car); 
-                          (Var "cdr", cdr);]
+let starting_env : env = [(Var "add", add_f); (Var "sub", sub_f);
+                          (Var "mult", mult_f); (Var "div", div_f);
+                          (Var "succ", succ_f); (Var "pred", pred_f);
+                          (Var "and", and_f); (Var "or", or_f);
+                          (Var "not", not_f); (Var "eq", eq_f);
+                          (Var "concat", concat_f); (Var "len", len_f);
+                          (Var "to_str", to_str_f);
+                          (Var "cons", cons_f); (Var "car", car_f); 
+                          (Var "cdr", cdr_f);]
 
 (* NOW THIS IS HOW TO MAKE THINGS HAPPEN *)
-let run (exp : exp) : out =
-  interp exp starting_env
+let show (o : out) : unit =
+  print_string (rec_to_str o);
+  print_newline ()
+
+let run (exp : exp) : unit =
+  show (interp exp starting_env)
