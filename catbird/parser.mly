@@ -16,15 +16,19 @@ open Catbird
 %%
 
 parse: 
-  | EOF                                         { None               }
-  | e = exp                                     { Some e             };
+  | EOF                                         { None           }
+  | e = exp                                     { Some e         };
 
 exp:
-  | i = INT                                     { Const (Int i)      }
-  | s = STR                                     { Const (Str s)      }
-  | TRUE                                        { Const (Bool true)  }
-  | FALSE                                       { Const (Bool false) }
-  | QUOTE; s = VAR                              { Const (Sym s)      }
-  | x = VAR                                     { Var x              }
-  | OP; LAMBDA; OP; a = exp; CP; b = exp; CP    { Lambda (a, b)      } 
-  | OP; e1 = exp; e2 = exp; CP                  { Apply (e1, e2)     };
+  | x = VAR                                     { Var x          }
+  | OP; LAMBDA; OP; a = exp; CP; b = exp; CP    { Lambda (a, b)  } 
+  | OP; e1 = exp; e2 = exp; CP                  { Apply (e1, e2) }
+  | c = const                                   { Const c        };
+
+const:
+  | i = INT                                     { Int i          }
+  | s = STR                                     { Str s          }
+  | TRUE                                        { Bool true      }
+  | FALSE                                       { Bool false     }
+  | QUOTE; s = VAR                              { Sym s          }
+  | QUOTE; OP; l = list(const); CP              { List l         };
