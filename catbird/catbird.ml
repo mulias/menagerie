@@ -17,6 +17,7 @@ type exp =
   | Var of string
   | Lambda of exp * exp 
   | Apply of exp * exp
+  | UE
 
 let rec const_to_string (const : const) : string =
   match const with
@@ -24,12 +25,13 @@ let rec const_to_string (const : const) : string =
   | Str s  -> "Str "  ^ "\"" ^ s ^ "\""
   | Bool b -> "Bool " ^ Bool.to_string b
   | Sym s  -> "Sym "  ^ "\"" ^ s ^ "\""
-  | List l -> "List [" ^ (String.concat (List.map l const_to_string) ~sep:";") ^ "]" 
+  | List l -> "List [" ^ (String.concat (List.map l const_to_string) ~sep:";") ^ "]"  
 
 let rec exp_to_string (exp : exp) : string =
   match exp with
   | Const c          -> "Const (" ^ (const_to_string c) ^ ")"
   | Var x            -> "Var " ^ "\"" ^ x ^ "\""
+  | UE               -> "unit"
   | Lambda (v, body) -> 
       "Lambda (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string body) ^ ")"
   | Apply (f, arg)   -> 
@@ -64,6 +66,7 @@ type value =
   | Sym of string
   | Fun of (value -> value m)
   | List of value list
+  | UV
 
 let rec value_to_string (v : value) : string =
   match v with
@@ -72,7 +75,8 @@ let rec value_to_string (v : value) : string =
   | Bool b -> Bool.to_string b
   | Sym s  -> "'" ^ s
   | List l -> "'(" ^ (String.concat (List.map l value_to_string) ~sep:" ") ^ ")" 
-  | Fun _ -> "<function>"
+  | Fun _  -> "<function>"
+  | UV     -> "unit"
 
 (* MORE MONAD. MONAD MONAD MONAD. DON'T I SOUND SMART. *)
 type mvalue = value m
@@ -179,8 +183,10 @@ let eq_f =
     | (Bool a, Bool b)  -> Success (Bool (a = b))
     | (Sym a, Sym b)  -> Success (Bool (a = b))
     | (List a, List b) -> Success (Bool (a = b))
-    | (Int _, _)  | (Str _, _)  | (Bool _, _) | 
-      (Sym _, _)  | (Fun _, _)  | (List _, _)   -> Success (Bool (false)))
+    | (UV , UV) -> Success (Bool true)
+    | (Int _, _)  | (Str _, _)  | 
+      (Bool _, _) | (Sym _, _)  | 
+      (Fun _, _)  | (List _, _) | (UV, _)  -> Success (Bool (false)))
 
 (* STRING THINGS *)
 let str_unary_op (op : (string -> string)) : value =
@@ -197,7 +203,7 @@ let to_str_f = unary_fun (fun (v : value) -> Success (Str (value_to_string v)))
 let cons_f =  
   binary_fun (fun (v1 : value) (v2 : value) -> 
     match v2 with
-    | List l -> Success (List (v2 :: l))
+    | List l -> Success (List (v1 :: l))
     | _      -> Error "[arg type] expected list")
 
 let car_f : value =
@@ -224,7 +230,7 @@ let initial_env : env = [(Var "add", add_f); (Var "sub", sub_f);
                          (Var "not", not_f); (Var "eq", eq_f);
                          (Var "concat", concat_f); (Var "len", len_f);
                          (Var "to_str", to_str_f);
-                         (* (Var "cons", cons_f); *) (Var "car", car_f); 
+                         (Var "cons", cons_f); (Var "car", car_f); 
                          (Var "cdr", cdr_f);]
 
 (* OR IF YOU WANT TO BE BORING *)
@@ -252,9 +258,10 @@ let rec interp (exp : exp) (env : env) : mvalue =
     | Some value -> Success value
     | _          -> Error "[env lookup] unbound variable"
   in
-  let interp_lambda (arg : exp) (body :exp) : mvalue =
-    match arg with
-    | Var _ -> Success (Fun (fun x -> (interp body ((arg, x) :: env))))
+  let interp_lambda (var : exp) (body : exp) : mvalue =
+    match var with
+    | Var _ -> Success (Fun (fun x -> (interp body ((var, x) :: env))))
+    | UE    -> Success (Fun (fun x -> (interp body env)))
     | _     -> Error "[lambda] arg is not a variable"
   in
   let interp_apply (lambda : exp) (exp : exp) : mvalue =
@@ -264,13 +271,14 @@ let rec interp (exp : exp) (env : env) : mvalue =
       >>= (fun lambda_res ->
         match lambda_res with
         | Fun f -> f exp_res
-        | _     -> Error "[apply] not a function"))
+        | _     -> Error "[apply] arg is not a function"))
   in
   match exp with
   | Const c             -> interp_const c
   | Var _               -> interp_var exp
   | Lambda (arg, body)  -> interp_lambda arg body
   | Apply (lambda, exp) -> interp_apply lambda exp
+  | UE                  -> Success UV
 
 (* NOW THIS IS HOW TO MAKE THINGS HAPPEN *)
 
