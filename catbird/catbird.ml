@@ -20,20 +20,20 @@ type exp =
 
 let rec const_to_string (const : const) : string =
   match const with
-  | Int i  -> Int.to_string i
-  | Str s  -> "\"" ^ s ^ "\""
-  | Bool b -> Bool.to_string b
-  | Sym s  -> "'" ^ s
-  | List l -> "'(" ^ (String.concat (List.map l const_to_string) ~sep:" ") ^ ")" 
+  | Int i  -> "Int "  ^ Int.to_string i 
+  | Str s  -> "Str "  ^ "\"" ^ s ^ "\""
+  | Bool b -> "Bool " ^ Bool.to_string b
+  | Sym s  -> "Sym "  ^ "\"" ^ s ^ "\""
+  | List l -> "List [" ^ (String.concat (List.map l const_to_string) ~sep:";") ^ "]" 
 
 let rec exp_to_string (exp : exp) : string =
   match exp with
-  | Const c          -> const_to_string c
-  | Var x            -> x
+  | Const c          -> "Const (" ^ (const_to_string c) ^ ")"
+  | Var x            -> "Var " ^ "\"" ^ x ^ "\""
   | Lambda (v, body) -> 
-      "(\\ (" ^ (exp_to_string v) ^ ") " ^ (exp_to_string body) ^ ")"
+      "Lambda (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string body) ^ ")"
   | Apply (f, arg)   -> 
-      "(" ^ (exp_to_string f) ^ " " ^ (exp_to_string arg) ^ ")"
+      "Apply (" ^ (exp_to_string f) ^ ", " ^ (exp_to_string arg) ^ ")"
 
 
 
