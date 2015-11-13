@@ -11,13 +11,13 @@ type const =
   | Bool of bool
   | Sym of string
   | List of const list
+  | UE
 
 type exp =
   | Const of const
   | Var of string
   | Lambda of exp * exp 
   | Apply of exp * exp
-  | UE
 
 let rec const_to_string (const : const) : string =
   match const with
@@ -25,13 +25,13 @@ let rec const_to_string (const : const) : string =
   | Str s  -> "Str "  ^ "\"" ^ s ^ "\""
   | Bool b -> "Bool " ^ Bool.to_string b
   | Sym s  -> "Sym "  ^ "\"" ^ s ^ "\""
+  | UE               -> "unit"
   | List l -> "List [" ^ (String.concat (List.map l const_to_string) ~sep:";") ^ "]"  
 
 let rec exp_to_string (exp : exp) : string =
   match exp with
   | Const c          -> "Const (" ^ (const_to_string c) ^ ")"
   | Var x            -> "Var " ^ "\"" ^ x ^ "\""
-  | UE               -> "unit"
   | Lambda (v, body) -> 
       "Lambda (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string body) ^ ")"
   | Apply (f, arg)   -> 
@@ -250,6 +250,7 @@ let interp_const (const : const) : mvalue =
     | Bool b    -> Bool b
     | Sym s     -> Sym s
     | List exps -> List (List.map exps kernel)
+    | UE        -> UV
   in Success (kernel const)
 
 let rec interp (exp : exp) (env : env) : mvalue =
@@ -260,9 +261,9 @@ let rec interp (exp : exp) (env : env) : mvalue =
   in
   let interp_lambda (var : exp) (body : exp) : mvalue =
     match var with
-    | Var _ -> Success (Fun (fun x -> (interp body ((var, x) :: env))))
-    | UE    -> Success (Fun (fun x -> (interp body env)))
-    | _     -> Error "[lambda] arg is not a variable"
+    | Var _    -> Success (Fun (fun x -> (interp body ((var, x) :: env))))
+    | Const UE -> Success (Fun (fun x -> (interp body env)))
+    | _        -> Error "[lambda] arg is not a variable"
   in
   let interp_apply (lambda : exp) (exp : exp) : mvalue =
     (interp exp env)
@@ -278,7 +279,6 @@ let rec interp (exp : exp) (env : env) : mvalue =
   | Var _               -> interp_var exp
   | Lambda (arg, body)  -> interp_lambda arg body
   | Apply (lambda, exp) -> interp_apply lambda exp
-  | UE                  -> Success UV
 
 (* NOW THIS IS HOW TO MAKE THINGS HAPPEN *)
 
