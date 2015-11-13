@@ -16,9 +16,10 @@ let next_line lexbuf =
 let digit = ['0'-'9']
 let char = ['a'-'z' 'A'-'Z']
 let math = ['*' '-' '+' '/' '^' '%' '<' '>' '=']
-let thingy = ['!' '@' '#' '$' '&' '_' '~' ':']
+let thingy = ['!' '@' '#' '$' '&' '~' '|']
+let reserved = ['_' '\\' ':']
 let symbol = char | math | thingy
-let any_valid = symbol | digit
+let any_valid = symbol | digit | reserved
 
 
 (* token defs *)
@@ -27,6 +28,9 @@ let white = [' ' '\t']+
 let newline  = '\r' | '\n' | "\r\n"
 let var = symbol any_valid*
 let lambda = "lambda" | '\\'
+let unit_t = "unit" | "_"
+let define = "define" | "::="
+let let_t = "let" | ":="
 
 
 rule read =
@@ -37,9 +41,12 @@ rule read =
   | '"'       { read_string (Buffer.create 17) lexbuf }
   | "true"    { TRUE }
   | "false"   { FALSE }
-  | var       { VAR (Lexing.lexeme lexbuf) }
   | "'"       { QUOTE }
   | lambda    { LAMBDA }
+  | unit_t    { UNIT }
+  | define    { DEFINE }
+  | let_t     { LET }
+  | var       { VAR (Lexing.lexeme lexbuf) }
   | '('       { OP }
   | ')'       { CP }
   | _         { raise (SyntaxError("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

@@ -30,7 +30,9 @@ let curry_apply (f : exp) (args : exp list) : exp =
 %token FALSE
 %token QUOTE
 %token LAMBDA
-%token BLANK
+%token UNIT
+%token DEFINE
+%token LET
 %token OP
 %token CP
 %token EOF
@@ -40,13 +42,15 @@ let curry_apply (f : exp) (args : exp list) : exp =
 
 parse: 
   | EOF                                                { None                 }
+  | OP; DEFINE; x = VAR; e = exp; CP                { Some (Define (Var x, e)) }
   | e = exp                                            { Some e               };
 
 exp:
   | x = VAR                                            { Var x                }
-  | OP; LAMBDA; OP; BLANK; CP; b = exp; CP             { Lambda (Const UE, b) } 
+  | OP; LAMBDA; OP; UNIT; CP; b = exp; CP              { Lambda (Const UE, b) } 
   | OP; LAMBDA; OP; vs = list(l_vars); CP; b = exp; CP { curry_lambda vs b    } 
   | OP; f = exp; args = list(exp); CP                  { curry_apply f args   }
+  | OP; LET; OP; x = VAR; e = exp; CP; b = exp; CP     { Let (Var x, e, b)    } 
   | c = const                                          { Const c              };
 
 l_vars:
@@ -59,7 +63,7 @@ const:
   | FALSE                                              { Bool false           }
   | QUOTE; s = VAR                                     { Sym s                }
   | QUOTE; OP; l = list(inside_list); CP               { List l               }
-  | BLANK                                              { UE                   };
+  | UNIT                                               { UE                   };
 
 inside_list:
   | i = INT                                            { Int i               }
@@ -68,4 +72,4 @@ inside_list:
   | FALSE                                              { Bool false          }
   | s = VAR                                            { Sym s               }
   | OP; l = list(inside_list); CP                      { List l              }
-  | BLANK                                              { UE                  };
+  | UNIT                                               { UE                  };
