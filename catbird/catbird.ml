@@ -18,6 +18,8 @@ type exp =
   | Var of string
   | Lambda of exp * exp 
   | Apply of exp * exp
+  | Define of exp * exp
+  | Let of exp * exp * exp
 
 let rec const_to_string (const : const) : string =
   match const with
@@ -25,17 +27,22 @@ let rec const_to_string (const : const) : string =
   | Str s  -> "Str "  ^ "\"" ^ s ^ "\""
   | Bool b -> "Bool " ^ Bool.to_string b
   | Sym s  -> "Sym "  ^ "\"" ^ s ^ "\""
-  | UE               -> "unit"
+  | UE     -> "unit"
   | List l -> "List [" ^ (String.concat (List.map l const_to_string) ~sep:";") ^ "]"  
 
 let rec exp_to_string (exp : exp) : string =
   match exp with
-  | Const c          -> "Const (" ^ (const_to_string c) ^ ")"
-  | Var x            -> "Var " ^ "\"" ^ x ^ "\""
+  | Const c -> "Const (" ^ (const_to_string c) ^ ")"
+  | Var x   -> "Var " ^ "\"" ^ x ^ "\""
   | Lambda (v, body) -> 
       "Lambda (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string body) ^ ")"
-  | Apply (f, arg)   -> 
+  | Apply (f, arg) -> 
       "Apply (" ^ (exp_to_string f) ^ ", " ^ (exp_to_string arg) ^ ")"
+  | Define (v, e) ->
+      "Define (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string e) ^ ")"
+  | Let (v, e, body) ->
+      "Let (" ^ (exp_to_string v) ^ ", " ^ (exp_to_string e) ^ ", "
+        ^ (exp_to_string body) ^ ")"
 
 
 
@@ -223,15 +230,15 @@ let cdr_f =
   in Fun cdr
 
 (* THIS IS THE STUFF WE CAN DO NOW *)
-let initial_env : env = [(Var "add", add_f); (Var "sub", sub_f);
-                         (Var "mult", mult_f); (Var "div", div_f);
-                         (Var "succ", succ_f); (Var "pred", pred_f);
-                         (Var "and", and_f); (Var "or", or_f);
-                         (Var "not", not_f); (Var "eq", eq_f);
+let initial_env : env = [(Var "+", add_f); (Var "-", sub_f);
+                         (Var "*", mult_f); (Var "/", div_f);
+                         (Var "++", succ_f); (Var "--", pred_f);
+                         (Var "&", and_f); (Var "|", or_f);
+                         (Var "!", not_f); (Var "=", eq_f);
                          (Var "concat", concat_f); (Var "len", len_f);
-                         (Var "to_str", to_str_f);
-                         (Var "cons", cons_f); (Var "car", car_f); 
-                         (Var "cdr", cdr_f);]
+                         (Var "->str", to_str_f);
+                         (Var "#", cons_f); (Var "hd#", car_f); 
+                         (Var "#tl", cdr_f);]
 
 (* OR IF YOU WANT TO BE BORING *)
 let empty_env : env = []
@@ -274,11 +281,27 @@ let rec interp (exp : exp) (env : env) : mvalue =
         | Fun f -> f exp_res
         | _     -> Error "[apply] arg is not a function"))
   in
+  let interp_define (var : exp) (exp : exp) : mvalue =
+    (interp exp env)
+    >>= (fun exp_res ->
+      match var with
+      | Var _ -> Success UV
+      | _     -> Error "[define] cannot bind expression to non-variable arg")
+  in
+  let interp_let (var : exp) (exp : exp) (body : exp) : mvalue =
+    (interp exp env)
+    >>= (fun exp_res ->
+      match var with
+      | Var _ -> interp body ((var, exp_res) :: env)
+      | _     -> Error "[let] cannot bind expression to non-variable arg")
+  in
   match exp with
-  | Const c             -> interp_const c
-  | Var _               -> interp_var exp
-  | Lambda (arg, body)  -> interp_lambda arg body
-  | Apply (lambda, exp) -> interp_apply lambda exp
+  | Const c              -> interp_const c
+  | Var _                -> interp_var exp
+  | Lambda (arg, body)   -> interp_lambda arg body
+  | Apply (lambda, exp)  -> interp_apply lambda exp
+  | Define (var, exp)    -> interp_define var exp
+  | Let (var, exp, body) -> interp_let var exp body
 
 (* NOW THIS IS HOW TO MAKE THINGS HAPPEN *)
 
