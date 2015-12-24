@@ -80,8 +80,6 @@ let (>>S) (m : 'a state_monad) (f : 'a -> 'b state_monad) : 'b state_monad =
 *)
 
 
-
-
 (* VALUE *)
 (* OUTPUT WE WANT TO PRODUCE *)
 (******************************************************************************)
@@ -113,7 +111,6 @@ let mvalue_to_string (mvalue : mvalue) : string =
   | Failure e -> "Error: " ^ e
 
 
-
 (* ENV *)
 (* HELLO ASSOC, MY OLD FRIEND *)
 (******************************************************************************)
@@ -122,7 +119,6 @@ type env = (exp, value) List.Assoc.t
 
 (* BORING STARTING ENV *)
 let empty_env : env = []
-
 
 
 (* DEFAULT ENV *)
@@ -215,7 +211,7 @@ let eq_f : value =
       | (Int _, _)  | (Str _, _)  | 
         (Bool _, _) | (Sym _, _)  | 
         (Fun _, _)  | (List _, _) | (UV, _)  -> false
-    in success (Bool result))))
+    in success (to_bool result))))
 
 (* STRING THINGS *)
 let str_unary_fun (op : (string -> string)) : value =
@@ -226,14 +222,14 @@ let str_binary_fun (op : (string -> string -> string)) : value =
 
 let concat_f = str_binary_fun (^)
 let len_f = unary_fun from_str String.length to_int
-let to_str_f = Fun (fun (v : value) -> success (Str (value_to_string v)))
+let to_str_f = Fun (fun (v : value) -> success (to_str (value_to_string v)))
 
 (* LISTS WITH ALL THE CRYPTIC OPERATIONS *)
 let cons_f : value =  
   Fun (fun (v1 : value) ->
   success (Fun (fun (v2 : value) ->
     (from_list v2) >> (fun (l : value list) ->
-    success (List (v1 :: l))))))
+    success (to_list (v1 :: l))))))
 
 let car_f : value =
   Fun (fun (v : value) ->
@@ -246,7 +242,7 @@ let cdr_f : value =
   Fun (fun (v : value) ->
     (from_list v) >> (fun (l : value list) ->
     match l with
-    | _::tl -> success (List tl)
+    | _::tl -> success (to_list tl)
     | []    -> failure "[cdr] expected non-empty list"))
 
 (* THIS IS THE STUFF WE CAN DO NOW *)
@@ -259,7 +255,6 @@ let initial_env : env = [(Var "+", add_f); (Var "-", sub_f);
                          (Var "->str", to_str_f);
                          (Var "#", cons_f); (Var "hd#", car_f); 
                          (Var "#tl", cdr_f);]
-
 
 
 (* RUN *)
