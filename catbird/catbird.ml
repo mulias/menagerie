@@ -45,20 +45,40 @@ let rec exp_to_string (exp : exp) : string =
         ^ (exp_to_string body) ^ ")"
 
 
-
-(* STATE MONAD *)
-(* OCAML HAS SOME BUILT IN MONAD FUNCTOR OR SOMETHING BUT I CAN'T BE BOTHERED
+(* ERROR AND STATE MONAD *)
+(* CORE HAS SOME BUILT IN MONAD FUNCTOR OR SOMETHING BUT I CAN'T BE BOTHERED
  * TO FIGURE THAT OUT THANK YOU. *)
 (******************************************************************************)
 
-type 'a m =
+(* ERROR MONAD. THIS ONE IS SIMPLE. *)
+type ('a, 'e) or_failure =
   | Success of 'a
-  | Error of string
+  | Failure of 'e
 
-let (>>=) (am : 'a m) (f : ('a -> 'b m)) : 'b m =
-  match am with
+(* MONAD IS A SUCCESS, BUT DON'T LET THAT GET TO ITS HEAD *)
+let success (a : 'a) : ('a, 'e) or_failure = Success a
+
+(* MONAD IS A FAILURE, BUT DON'T BREAK IT'S HEART *)
+let failure (e : 'e) : ('a, 'e) or_failure = Failure e
+
+(* ERROR MONAD BIND. *)
+let (>>) (m : ('a, 'e) or_failure) (f : ('a -> ('b, 'e) or_failure)) : ('b, 'e) or_failure =
+  match m with
   | Success a -> f a
-  | Error _   -> am
+  | Failure e -> failure e
+
+(*
+(* STATE MONAD. THE TYPE OF A STATE MONAD IS A FUNCTION THAT TAKES A STATE AS
+ * INPUT SO FUNCTIONS THAT RETURN STATE MONADS RETURN FUNCTIONS. YAY. *)
+type ('a, 's) state_monad = 's -> ('a * 's)
+
+let state_m (a : 'a) : state_monad = fun s -> (a, s)
+
+(* STATE MONAD BIND. *)
+let (>>S) (m : 'a state_monad) (f : 'a -> 'b state_monad) : 'b state_monad =
+  fun s -> let (a, s1) = (m s) in ((f a) s2)
+*)
+
 
 
 
@@ -71,9 +91,11 @@ type value =
   | Str of string
   | Bool of bool
   | Sym of string
-  | Fun of (value -> value m)
+  | Fun of (value -> mvalue)
   | List of value list
   | UV
+and
+mvalue = (value, string) or_failure
 
 let rec value_to_string (v : value) : string =
   match v with
@@ -85,13 +107,10 @@ let rec value_to_string (v : value) : string =
   | Fun _  -> "<function>"
   | UV     -> "unit"
 
-(* MORE MONAD. MONAD MONAD MONAD. DON'T I SOUND SMART. *)
-type mvalue = value m
-
 let mvalue_to_string (mvalue : mvalue) : string =
   match mvalue with
-  | Success value -> value_to_string value
-  | Error s       -> "Error: " ^ s
+  | Success v -> value_to_string v
+  | Failure e -> "Error: " ^ e
 
 
 
@@ -101,53 +120,55 @@ let mvalue_to_string (mvalue : mvalue) : string =
 
 type env = (exp, value) List.Assoc.t
 
+(* BORING STARTING ENV *)
+let empty_env : env = []
+
+
+
+(* DEFAULT ENV *)
 (* AWESOME, NOW WE STEAL BASIC FUNCTIONS FROM OCAML. *)
-let unary_fun (f : (value -> mvalue)) : value =
-  Fun (fun (v1 : value) -> f v1)
+(******************************************************************************)
 
-let build_unary_fun (from_v : (value -> 'a m)) (f : ('a -> 'b))
-                    (to_v : ('b -> value)) : value =
-  unary_fun (fun (v : value) -> 
-    match from_v v with
-    | Success a -> Success (to_v (f a))
-    | Error e -> Error e)
+(* FIRST WE NEED SOME FUNCTION BUILDERS. *)
 
-let binary_fun (f : (value -> value -> mvalue)) : value =
+type 'a mconverted = ('a, string) or_failure
+
+let unary_fun (from_v : (value -> 'a mconverted)) 
+              (op : ('a -> 'b)) 
+              (to_v : ('b -> value)) : value =
+  Fun (fun (v : value) -> 
+    (from_v v) >> (fun (a : 'a) -> 
+    success (to_v (op a))))
+    
+let binary_fun (from_v1 : (value -> 'a mconverted)) 
+               (from_v2 : (value -> 'b mconverted)) 
+               (op : ('a -> 'b -> 'c)) 
+               (to_v : ('c -> value)) : value =
   Fun (fun (v1 : value) -> 
-  Success (Fun (fun (v2 : value) -> f v1 v2)))
+    (from_v1 v1) >> (fun (a : 'a) ->
+    success (Fun (fun (v2 : value) -> 
+      (from_v2 v2) >> (fun (b : 'b) ->
+      success (to_v (op a b)))))))
 
-let build_binary_fun (from_v1 : (value -> 'a m)) (from_v2 : (value -> 'b m))
-                     (f : ('a -> 'b -> 'c)) (to_v : ('c -> value)) : value =
-  binary_fun (fun (v1 : value) (v2 : value) -> 
-    match (from_v1 v1, from_v2 v2) with
-    | (Success a, Success b) -> Success (to_v (f a b))
-    | (Error e, _) -> Error e
-    | (_, Error e) -> Error e)
-
-let ternary_fun (f : (value -> value -> value -> mvalue)) : value =
-  Fun (fun (v1 : value) -> 
-  Success (Fun (fun (v2 : value) -> 
-  Success (Fun (fun (v3 : value) -> f v1 v2 v3)))))
-
-let from_int (v : value) : int m =
+let from_int (v : value) : int mconverted =
   match v with
-  | Int a -> Success a
-  | _     -> Error "[arg type] expected integer"
+  | Int i -> success i
+  | _     -> failure "[arg type] expected integer"
 
-let from_str (v : value) : string m =
+let from_str (v : value) : string mconverted =
   match v with
-  | Str s -> Success s
-  | _     -> Error "[arg type] expected string"
+  | Str s -> success s
+  | _     -> failure "[arg type] expected string"
 
-let from_bool (v : value) : bool m =
+let from_bool (v : value) : bool mconverted =
   match v with
-  | Bool b -> Success b
-  | _      -> Error "[arg type] expected boolean"
+  | Bool b -> success b
+  | _      -> failure "[arg type] expected boolean"
 
-let from_list (v : value) : (value list) m =
+let from_list (v : value) : (value list) mconverted =
   match v with
-  | List l -> Success l
-  | _      -> Error "[arg type] expected list"
+  | List l -> success l
+  | _      -> failure "[arg type] expected list"
 
 let to_int (i : int) : value = Int i
 
@@ -159,10 +180,10 @@ let to_list (l : value list) : value = List l
 
 (* MATH *)
 let int_unary_op (op : (int -> int)) : value =
-  build_unary_fun from_int op to_int
-
+  unary_fun from_int op to_int
+    
 let int_binary_op (op : (int -> int -> int)) : value =
-  build_binary_fun from_int from_int op to_int
+  binary_fun from_int from_int op to_int
 
 let add_f  = int_binary_op ( + ) 
 let sub_f  = int_binary_op ( - ) 
@@ -173,61 +194,62 @@ let pred_f = int_unary_op pred
 
 (* TRUTH AND LIES *)
 let bool_unary_op (op : (bool -> bool)) : value =
-  build_unary_fun from_bool op to_bool
+  unary_fun from_bool op to_bool
 
 let bool_binary_op (op : (bool -> bool -> bool)) : value =
-  build_binary_fun from_bool from_bool op to_bool
+  binary_fun from_bool from_bool op to_bool
 
 let and_f = bool_binary_op (&&)
 let or_f  = bool_binary_op (||) 
 let not_f = bool_unary_op (not) 
 
-let eq_f = 
-  binary_fun (fun (v1 : value) (v2 : value) -> 
-    match (v1, v2) with
-    | (Int a, Int b)    -> Success (Bool (a = b))
-    | (Str a, Str b)  -> Success (Bool (a = b))
-    | (Bool a, Bool b)  -> Success (Bool (a = b))
-    | (Sym a, Sym b)  -> Success (Bool (a = b))
-    | (List a, List b) -> Success (Bool (a = b))
-    | (UV , UV) -> Success (Bool true)
-    | (Int _, _)  | (Str _, _)  | 
-      (Bool _, _) | (Sym _, _)  | 
-      (Fun _, _)  | (List _, _) | (UV, _)  -> Success (Bool (false)))
+let eq_f : value = 
+  Fun (fun (v1 : value) -> 
+  success (Fun (fun (v2 : value) ->
+    let result =
+      match (v1, v2) with
+      | (Int a, Int b)   -> a = b
+      | (Str a, Str b)   -> a = b
+      | (Bool a, Bool b) -> a = b
+      | (Sym a, Sym b)   -> a = b
+      | (List a, List b) -> a = b
+      | (UV , UV)        -> true
+      | (Int _, _)  | (Str _, _)  | 
+        (Bool _, _) | (Sym _, _)  | 
+        (Fun _, _)  | (List _, _) | (UV, _)  -> false
+    in success (Bool result))))
 
 (* STRING THINGS *)
 let str_unary_op (op : (string -> string)) : value =
-  build_unary_fun from_str op to_str
+  unary_fun from_str op to_str
 
 let str_binary_op (op : (string -> string -> string)) : value =
-  build_binary_fun from_str from_str op to_str
+  binary_fun from_str from_str op to_str
 
 let concat_f = str_binary_op (^)
-let len_f = build_unary_fun from_str String.length to_int
-let to_str_f = unary_fun (fun (v : value) -> Success (Str (value_to_string v)))
+let len_f = unary_fun from_str String.length to_int
+let to_str_f = Fun (fun (v : value) -> success (Str (value_to_string v)))
 
 (* LISTS WITH ALL THE CRYPTIC OPERATIONS *)
-let cons_f =  
-  binary_fun (fun (v1 : value) (v2 : value) -> 
-    match v2 with
-    | List l -> Success (List (v1 :: l))
-    | _      -> Error "[arg type] expected list")
+let cons_f : value =  
+  Fun (fun (v1 : value) ->
+  success (Fun (fun (v2 : value) ->
+    (from_list v2) >> (fun (l : value list) ->
+    success (List (v1 :: l))))))
 
 let car_f : value =
-  let car (v : value) : mvalue =
-    match v with
-    | List (hd::_) -> Success hd
-    | List []      -> Error "[car] expected non-empty list"
-    | _            -> Error "[arg type] expected list"
-  in Fun car
+  Fun (fun (v : value) ->
+    (from_list v) >> (fun (l : value list) ->
+    match l with
+    | hd::_ -> success hd
+    | []    -> failure "[car] expected non-empty list"))
 
-let cdr_f =
-  let cdr (v : value) : mvalue =
-    match v with
-    | List (_::tl) -> Success (List tl)
-    | List []      -> Error "[cdr] expected non-empty list"
-    | _            -> Error "[arg type] expected list"
-  in Fun cdr
+let cdr_f : value =
+  Fun (fun (v : value) ->
+    (from_list v) >> (fun (l : value list) ->
+    match l with
+    | _::tl -> success (List tl)
+    | []    -> failure "[cdr] expected non-empty list"))
 
 (* THIS IS THE STUFF WE CAN DO NOW *)
 let initial_env : env = [(Var "+", add_f); (Var "-", sub_f);
@@ -239,9 +261,6 @@ let initial_env : env = [(Var "+", add_f); (Var "-", sub_f);
                          (Var "->str", to_str_f);
                          (Var "#", cons_f); (Var "hd#", car_f); 
                          (Var "#tl", cdr_f);]
-
-(* OR IF YOU WANT TO BE BORING *)
-let empty_env : env = []
 
 
 
@@ -258,42 +277,38 @@ let interp_const (const : const) : mvalue =
     | Sym s     -> Sym s
     | List exps -> List (List.map exps kernel)
     | UE        -> UV
-  in Success (kernel const)
+  in success (kernel const)
 
 let rec interp (exp : exp) (env : env) : mvalue =
   let interp_var (exp : exp) : mvalue =
     match List.Assoc.find env exp with
-    | Some value -> Success value
-    | _          -> Error "[env lookup] unbound variable"
+    | Some value -> success value
+    | None       -> failure "[env lookup] unbound variable"
   in
   let interp_lambda (var : exp) (body : exp) : mvalue =
     match var with
-    | Var _    -> Success (Fun (fun x -> (interp body ((var, x) :: env))))
-    | Const UE -> Success (Fun (fun x -> (interp body env)))
-    | _        -> Error "[lambda] arg is not a variable"
+    | Var _    -> success (Fun (fun x -> (interp body ((var, x) :: env))))
+    | Const UE -> success (Fun (fun x -> (interp body env)))
+    | _        -> failure "[lambda] arg is not a variable"
   in
   let interp_apply (lambda : exp) (exp : exp) : mvalue =
-    (interp exp env)
-    >>= (fun exp_res ->
-      (interp lambda env) 
-      >>= (fun lambda_res ->
-        match lambda_res with
-        | Fun f -> f exp_res
-        | _     -> Error "[apply] arg is not a function"))
+    (interp exp env) >> (fun exp_res ->
+    (interp lambda env) >> (fun lambda_res ->
+      match lambda_res with
+      | Fun f -> f exp_res
+      | _     -> failure "[apply] arg is not a function"))
   in
   let interp_define (var : exp) (exp : exp) : mvalue =
-    (interp exp env)
-    >>= (fun exp_res ->
+    (interp exp env) >> (fun exp_res ->
       match var with
-      | Var _ -> Success UV
-      | _     -> Error "[define] cannot bind expression to non-variable arg")
+      | Var _ -> success UV
+      | _     -> failure "[define] cannot bind expression to non-variable arg")
   in
   let interp_let (var : exp) (exp : exp) (body : exp) : mvalue =
-    (interp exp env)
-    >>= (fun exp_res ->
+    (interp exp env) >> (fun exp_res ->
       match var with
       | Var _ -> interp body ((var, exp_res) :: env)
-      | _     -> Error "[let] cannot bind expression to non-variable arg")
+      | _     -> failure "[let] cannot bind expression to non-variable arg")
   in
   match exp with
   | Const c              -> interp_const c
