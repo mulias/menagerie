@@ -133,17 +133,15 @@ let empty_env : env = []
 
 type 'a mconverted = ('a, string) or_failure
 
-let unary_fun (from_v : (value -> 'a mconverted)) 
-              (op : ('a -> 'b)) 
-              (to_v : ('b -> value)) : value =
+let unary_fun (from_v : (value -> 'a mconverted)) (op : ('a -> 'b)) 
+  (to_v : ('b -> value)) : value =
   Fun (fun (v : value) -> 
     (from_v v) >> (fun (a : 'a) -> 
     success (to_v (op a))))
     
 let binary_fun (from_v1 : (value -> 'a mconverted)) 
-               (from_v2 : (value -> 'b mconverted)) 
-               (op : ('a -> 'b -> 'c)) 
-               (to_v : ('c -> value)) : value =
+  (from_v2 : (value -> 'b mconverted)) (op : ('a -> 'b -> 'c)) 
+  (to_v : ('c -> value)) : value =
   Fun (fun (v1 : value) -> 
     (from_v1 v1) >> (fun (a : 'a) ->
     success (Fun (fun (v2 : value) -> 
@@ -178,30 +176,30 @@ let to_bool (b : bool) : value = Bool b
 
 let to_list (l : value list) : value = List l
 
-(* MATH *)
-let int_unary_op (op : (int -> int)) : value =
+(* MATHS *)
+let int_unary_fun (op : (int -> int)) : value =
   unary_fun from_int op to_int
     
-let int_binary_op (op : (int -> int -> int)) : value =
+let int_binary_fun (op : (int -> int -> int)) : value =
   binary_fun from_int from_int op to_int
 
-let add_f  = int_binary_op ( + ) 
-let sub_f  = int_binary_op ( - ) 
-let mult_f = int_binary_op ( * ) 
-let div_f  = int_binary_op ( / ) 
-let succ_f = int_unary_op succ
-let pred_f = int_unary_op pred
+let add_f  = int_binary_fun ( + ) 
+let sub_f  = int_binary_fun ( - ) 
+let mult_f = int_binary_fun ( * ) 
+let div_f  = int_binary_fun ( / ) 
+let succ_f = int_unary_fun succ
+let pred_f = int_unary_fun pred
 
 (* TRUTH AND LIES *)
-let bool_unary_op (op : (bool -> bool)) : value =
+let bool_unary_fun (op : (bool -> bool)) : value =
   unary_fun from_bool op to_bool
 
-let bool_binary_op (op : (bool -> bool -> bool)) : value =
+let bool_binary_fun (op : (bool -> bool -> bool)) : value =
   binary_fun from_bool from_bool op to_bool
 
-let and_f = bool_binary_op (&&)
-let or_f  = bool_binary_op (||) 
-let not_f = bool_unary_op (not) 
+let and_f = bool_binary_fun (&&)
+let or_f  = bool_binary_fun (||) 
+let not_f = bool_unary_fun (not) 
 
 let eq_f : value = 
   Fun (fun (v1 : value) -> 
@@ -220,13 +218,13 @@ let eq_f : value =
     in success (Bool result))))
 
 (* STRING THINGS *)
-let str_unary_op (op : (string -> string)) : value =
+let str_unary_fun (op : (string -> string)) : value =
   unary_fun from_str op to_str
 
-let str_binary_op (op : (string -> string -> string)) : value =
+let str_binary_fun (op : (string -> string -> string)) : value =
   binary_fun from_str from_str op to_str
 
-let concat_f = str_binary_op (^)
+let concat_f = str_binary_fun (^)
 let len_f = unary_fun from_str String.length to_int
 let to_str_f = Fun (fun (v : value) -> success (Str (value_to_string v)))
 
