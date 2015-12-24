@@ -1,6 +1,6 @@
 %{
-open Catbird
 open Core.Std
+open Exp
 
 (* YUM CURRY *)
 (* WE WANT
@@ -8,7 +8,7 @@ open Core.Std
  * TO LOOK LIKE
  * Lambda (Var "a", Lambda (Var "b", Int 4))
  *)
-let curry_lambda (vars : exp list) (body : exp) : exp =
+let curry_lambda (vars : Exp.t list) (body : Exp.t) : Exp.t =
   match List.rev vars with
   | []     -> Lambda (Const UE, body)
   | hd::tl -> List.fold tl ~init:(Lambda (hd, body))
@@ -19,7 +19,7 @@ let curry_lambda (vars : exp list) (body : exp) : exp =
  * TO LOOK LIKE
  * Apply (Apply (Var "add", Int 1), Int 2) 
  *)
-let curry_apply (f : exp) (args : exp list) : exp =
+let curry_apply (f : Exp.t) (args : Exp.t list) : Exp.t =
   List.fold args ~init:f ~f:(fun accum next_arg -> (Apply (accum, next_arg)))
 
 %}
@@ -37,7 +37,7 @@ let curry_apply (f : exp) (args : exp list) : exp =
 %token CP
 %token EOF
 %start parse
-%type<Catbird.exp option> parse
+%type<Exp.t option> parse
 %%
 
 parse: 
