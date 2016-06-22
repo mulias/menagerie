@@ -1,0 +1,14 @@
+0000000000000000000000000000000000000000 8e16a210aff8603e7c1a9c3c89dfae829d3d368f mulhalle <mulhalle@grinnell.edu> 1433696648 -0400	clone: from https://github.com/mulias/llama.git
+8e16a210aff8603e7c1a9c3c89dfae829d3d368f 1239b01ebd2355ddc27fc74ce78189ca9d650ed8 mulhalle <mulhalle@grinnell.edu> 1433696818 -0400	commit: first try at AST evaluator. It's likly the eval function is wrong.
+1239b01ebd2355ddc27fc74ce78189ca9d650ed8 47c9b2239c44d4986e2061d1c034b4637273b249 mulhalle <mulhalle@grinnell.edu> 1433700139 -0400	commit: initial parser definition
+47c9b2239c44d4986e2061d1c034b4637273b249 b7f7a22aca22f4c7a13eac18b0f36726cd8c865d mulhalle <mulhalle@grinnell.edu> 1433703965 -0400	commit: initial lexer rules
+b7f7a22aca22f4c7a13eac18b0f36726cd8c865d 444ba3c77ba657f35ea603cdc9abd0566df7141b mulhalle <mulhalle@grinnell.edu> 1433708835 -0400	commit: use int_of_string and float_of_string, not sure why. Use valid regex for symbol
+444ba3c77ba657f35ea603cdc9abd0566df7141b b7f7a22aca22f4c7a13eac18b0f36726cd8c865d mulhalle <mulhalle@grinnell.edu> 1433708904 -0400	reset: moving to HEAD~1
+b7f7a22aca22f4c7a13eac18b0f36726cd8c865d d345b080678c6a70daf275dd5a1a4f0e345aca89 mulhalle <mulhalle@grinnell.edu> 1433708927 -0400	commit: use int_of_string and float_of_string, not sure why. Use valid regex for symbol
+d345b080678c6a70daf275dd5a1a4f0e345aca89 b7f7a22aca22f4c7a13eac18b0f36726cd8c865d mulhalle <mulhalle@grinnell.edu> 1433709020 -0400	reset: moving to HEAD~1
+b7f7a22aca22f4c7a13eac18b0f36726cd8c865d 6a9d5ec97cf064cda5913a3bad4255364fd5d0df mulhalle <mulhalle@grinnell.edu> 1433709133 -0400	commit: code compiles, no output
+6a9d5ec97cf064cda5913a3bad4255364fd5d0df fdc835eaa843ccd7fee998928387ba8dd2e52bc6 mulhalle <mulhalle@grinnell.edu> 1433725444 -0400	commit: split s-expression type into new file, add non-recursive eval entry point
+fdc835eaa843ccd7fee998928387ba8dd2e52bc6 98a5a6d5149f30dede13da704b080568ebf2c7b7 mulhalle <mulhalle@grinnell.edu> 1433725522 -0400	commit: add comments for file and modules
+98a5a6d5149f30dede13da704b080568ebf2c7b7 6c69ed363f6df70ee6d41d2c25159b50441b8039 mulhalle <mulhalle@grinnell.edu> 1433725599 -0400	commit: split eval and sxp, add comments for modules
+6c69ed363f6df70ee6d41d2c25159b50441b8039 9c709115ccdad4d4b49d8675b59c78529e62a06c mulhalle <mulhalle@grinnell.edu> 1433725625 -0400	commit: split eval and sxp, add comments for modules
+9c709115ccdad4d4b49d8675b59c78529e62a06c aa496c8bfca6050cf45b404e344e2f2698a6edaa mulhalle <mulhalle@grinnell.edu> 1433725701 -0400	commit: add mli files for everything but parsing

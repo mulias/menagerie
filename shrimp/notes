@@ -1,0 +1,23 @@
+(let a 1)
+
+# bind + in env
++:>i,>i,i = [a:i. [b:i. {|a,b| a + b }:i]]
+
+# bind 7 in env
+seven:i = 
+  ([x:i.
+    & y:i=2. & z:i=1.
+	  (+ (+ x y) z)] 
+  4)
+
+# bind id in env
+id:>i,>u,i = [x:i.[y:u.x]]
+
+# return [y:u.3]
+& f:>i,>u,i=id. & three:i=3. (id three)
+
+# returns 7
+seven
+
+# bind factorial function in env
+fac:i = [n:i. (((if ((eq n) 1))) 1) (* n (fac (- n 1))))]
